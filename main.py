@@ -1,12 +1,32 @@
 from bs4 import BeautifulSoup
+from collections import OrderedDict
 import re
 import io
+import sys
+import getopt
 
-with open("compact_data.html", "r") as fp:
+inputFile = ""
+outputFile = ""
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "i:o:h", ["input=", "output=", "help"])
+except:
+    print("main.py -i <inputfile> -o <outputfile>")
+    sys.exit(2)
+for opt, arg in opts:
+    if(opt in ("-h", "--help")):
+        print("main.py -i <inputfile> -o <outputfile>")
+        sys.exit()
+    elif(opt in ("-i", "--input")):
+        inputFile = arg
+    elif(opt in ("-o", "--output")):
+        outputFile = arg
+
+with open(inputFile, "r") as fp:
     soup = BeautifulSoup(fp, "lxml")
 
 def isQuestion(tag):
-    return tag.name == "b" and re.compile("q_\d* ").search(tag.string)
+    return tag.name == "b" and re.compile(r"q_\d* ").search(tag.string)
 
 def isVariableName(tag):
     return tag.name == "nobr" and tag.string == "Variablenname"
@@ -39,6 +59,13 @@ def getVarDescriptionFromVarName(varName):
     parentTableRow = varName.find_parent("tr")
     return parentTableRow.select("td")[3]
 
+
+def sortObjByKeys(obj):
+    sortedObj = {}
+    for key in sorted(obj.keys()):
+        sortedObj[key] = obj[key]
+    return sortedObj
+
 variables = soup.find_all(isVariableName)
 variables = [var.find_next("nobr") for var in variables]
 
@@ -57,24 +84,29 @@ for varName in variables:
     }
     resultObjs[varName.string] = varObj
 
+resultObjs = OrderedDict(sorted(resultObjs.items(), key=lambda obj: int(obj[0][2:])))
 
-print(resultObjs["v_17"])
-# htmlString=u"<table><thead><tr><th>Variablenname</th><th>Frage</th><th>Ausprägungen</th></tr></thead>"
+htmlString=u"<html><head><meta charset=\"UTF-8\"></head>"
+htmlString+=u"<body>"
+htmlString+=u"<table><thead><tr><th>Variablenname</th><th>Variablenbeschreibung</th><th>Frage</th><th>Auspr&auml;gungen</th></tr></thead>"
 
-# for result in resultObjs:
-#     htmlString+=u"<tr>"
-#     htmlString+=u"<td>" + unicode(result["Variablenname"]) + u"</td>"
-#     htmlString+=u"<td>" + unicode(result["Frage"]) + u"</td>"
-#     htmlString+=u"<td></td>"
-#     htmlString+="</tr>"
-#     for valuePair in result["Werte"]:
-#         htmlString+=u"<tr><td></td><td></td><td>" + unicode(valuePair["val1"]) + " - " + unicode(valuePair["val2"]) + u"</td></tr>"
+for key in resultObjs:
+    htmlString+=u"<tr>"
+    htmlString+=u"<td style=\"border: 1px solid black;\">" + unicode(resultObjs[key]["Variablenname"]) + u"</td>"
+    htmlString+=u"<td style=\"border: 1px solid black;\">" + unicode(resultObjs[key]["Beschreibung"]) + u"</td>"
+    htmlString+=u"<td style=\"border: 1px solid black;\">" + unicode(resultObjs[key]["Frage"]) + u"</td>"
+    htmlString+=u"<td style=\"border: 1px solid black;\"></td>"
+    htmlString+="</tr>"
+    for valuePair in resultObjs[key]["Werte"]:
+        htmlString+=u"<tr><td style=\"border: 1px solid black;\"></td><td style=\"border: 1px solid black;\"></td><td style=\"border: 1px solid black;\"></td><td style=\"border: 1px solid black;\">" + unicode(valuePair["description"]) + " - " + unicode(valuePair["value"]) + u"</td></tr>"
 
-# resultsFile = io.open("results.html", "w", encoding="utf-8")
+htmlString+="</body></html>"
 
-# resultsFile.write(htmlString)
+resultsFile = io.open(outputFile, "w", encoding="utf-8")
 
-# resultsFile.close()
+resultsFile.write(htmlString)
+
+resultsFile.close()
     
     
 
